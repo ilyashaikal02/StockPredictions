@@ -1,0 +1,168 @@
+---
+title: "Tickers Model"
+author: "Muhamad Ilyas Haikal"
+date: "2020/06/07"
+output: html_document
+ 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+```{r}
+library(xts)
+library(DMwR2)
+library(quantmod)
+library(TTR)
+library(performanceEstimation) 
+library(nnet)
+library(e1071)
+library(kernlab)
+library(earth)
+library(randomForest)
+library(ggplot2)
+library(dplyr)
+library(plotly)
+library(hrbrthemes)
+```
+
+```{r}
+library(readr)
+dataset <- read_csv('stocks_combined.csv')
+tickers <- read_csv('tickers.csv')
+```
+
+```{r}
+library(anytime)
+t <- dataset
+t$date <- anytime::anydate(t$date)
+head(t)
+```
+
+```{r}
+# calculate the rolling average 
+t_for_tick <- t %>%
+  dplyr::arrange(desc(ticker)) %>%
+  dplyr::group_by(ticker) %>%
+  dplyr::mutate(close_03 = zoo::rollmean(close, k = 3, fill = NA),
+                close_05 = zoo::rollmean(close, k = 5, fill = NA),
+                close_07 = zoo::rollmean(close, k = 7, fill = NA),
+                close_15 = zoo::rollmean(close, k = 15, fill = NA),
+                close_21 = zoo::rollmean(close, k = 21, fill = NA)) %>%
+  dplyr::ungroup()
+```
+
+```{r}
+t_for_apl <- t_for_tick %>% 
+  dplyr::arrange(date) %>% 
+  dplyr::filter(ticker == "AAPL") %>% 
+  dplyr::select(ticker,
+                date,
+                close,
+                close_03:close_07) %>% 
+  head(7)
+
+t_for_apl
+```
+
+```{r}
+t_for_tick %>% 
+  dplyr::filter(ticker == "AAPL") %>% 
+  tidyr::pivot_longer(names_to = "rolling_mean_key", 
+                    values_to = "rolling_mean_value", 
+                    cols = c(close, 
+                             close_03, 
+                             close_21)) %>%
+
+  dplyr::filter(date >= lubridate::as_date("2017-2-21") &
+
+                  date <= lubridate::as_date("2018-06-20")) %>% 
+  ggplot2::ggplot(aes(x = date, 
+                      y = rolling_mean_value, 
+                      color = rolling_mean_key)) +
+  ggplot2::geom_line() +   
+  ggplot2::labs(title = "AAPL's rolling average total closing prices", 
+                  subtitle = "Between 2017-2-21 and 2018-06-20",
+                  y = "close price", 
+                  color = "Metric",
+                  x = "Date") + 
+  theme_bw()
+```
+
+```{r}
+t_for_tick %>% 
+  dplyr::filter(ticker == "GS") %>% 
+  tidyr::pivot_longer(names_to = "rolling_mean_key", 
+                    values_to = "rolling_mean_value", 
+                    cols = c(close, 
+                             close_03, 
+                             close_21)) %>%
+
+  dplyr::filter(date >= lubridate::as_date("2017-2-21") &
+
+                  date <= lubridate::as_date("2018-06-20")) %>% 
+  ggplot2::ggplot(aes(x = date, 
+                      y = rolling_mean_value, 
+                      color = rolling_mean_key)) +
+  ggplot2::geom_line() +   
+  ggplot2::labs(title = "GS's rolling average total closing prices", 
+                  subtitle = "Between 2017-2-21 and 2018-06-20",
+                  y = "close price", 
+                  color = "Metric",
+                  x = "Date") + 
+  theme_bw()
+```
+
+
+
+```{r}
+library(Information)
+library(gridExtra)
+library(tidyverse)
+
+# add win/lose variables to be the dependent variable
+to_binary <- t_for_tick %>% 
+  mutate(win = ifelse(changePercent > 0, 1, 0))
+head(to_binary)
+
+```
+
+```{r}
+library(caret)
+intrain<-createDataPartition(y=to_binary$win,p=0.7,list=FALSE)
+training<-to_binary[intrain,]
+testing<-to_binary[-intrain,]
+```
+
+```{r}
+### Ranking variables using penalized IV  
+IV <- create_infotables(data=training,
+                        valid=testing,
+                        y="win")
+head(IV$Summary)
+```
+
+```{r}
+IV$Tables$changePercent
+```
+
+
+```{r}
+IV$Tables$close
+```
+
+## WOE pttern for closing price
+
+```{r fig.height=5, fig.width=10}
+plot_infotables(IV, "close")
+```
+
+```{r fig.height=5, fig.width=10}
+MultiPlot(IV, IV$Summary$Variable[1:9])
+```
+
