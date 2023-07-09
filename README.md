@@ -1,5 +1,5 @@
 # StockPredictions
-
+Medium : https://medium.com/@muhamadilyashaikall/stock-predictions-methods-483bde3b45a
 Abstract
 
 There are a few ways of predicting stock prices. From blind guessing to machine learning, many techniques have been tested to try to achieve decent results. Capturing the complexity of the market in a model is a daunting task but it can be broken down in a number of approaches.
